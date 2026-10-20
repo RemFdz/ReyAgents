@@ -40,11 +40,12 @@ Modifie les fichiers dans `agents/` ou `skills/`, commite, pousse, puis relance 
 
 Ajoute `.rey/` au `.gitignore` de tes projets.
 
-### Perplexity (optionnel)
+### Perplexity
 
-```bash
-claude mcp add --transport http perplexity https://api.perplexity.ai/mcp
-```
+Le script ajoute aussi le serveur MCP `perplexity` (portée utilisateur). Deux options :
+
+- **OAuth** (par défaut) : après l'install, dans Claude Code, tape `/mcp`, choisis `perplexity` et connecte-toi.
+- **Clé API** : exporte la clé avant de lancer le script, par exemple `PERPLEXITY_API_KEY=pplx-… ./install.sh`.
 
 Garde le nom de serveur `perplexity` : les agents référencent `mcp__perplexity__*`. Sans lui, ils utilisent la recherche web intégrée.
 

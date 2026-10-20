@@ -10,6 +10,7 @@ main() {
   REPO="RemFdz/ReyAgents"
   MARKETPLACE="rey-agents"
   PLUGIN="rey-agents@rey-agents"
+  PERPLEXITY_MCP_URL="https://api.perplexity.ai/mcp"
 
   command -v claude >/dev/null || { echo "Claude Code introuvable : https://claude.com/claude-code" >&2; exit 1; }
   command -v git >/dev/null || { echo "git introuvable." >&2; exit 1; }
@@ -45,7 +46,19 @@ main() {
     claude_cli plugin install "$PLUGIN"
   fi
 
-  echo "✓ rey-agents prêt. Redémarre Claude Code puis lance : /rey-agents:rey <tâche>"
+  # Les agents référencent mcp__perplexity__* : le serveur doit s'appeler "perplexity".
+  if claude_cli mcp get perplexity >/dev/null 2>&1; then
+    echo "→ MCP perplexity déjà configuré"
+  elif [[ -n "${PERPLEXITY_API_KEY:-}" ]]; then
+    echo "→ Ajout du MCP perplexity (clé API)"
+    claude_cli mcp add --scope user --transport http perplexity "$PERPLEXITY_MCP_URL" \
+      --header "Authorization: Bearer ${PERPLEXITY_API_KEY}"
+  else
+    echo "→ Ajout du MCP perplexity (connexion OAuth à faire dans Claude Code via /mcp)"
+    claude_cli mcp add --scope user --transport http perplexity "$PERPLEXITY_MCP_URL"
+  fi
+
+  echo "✓ rey-agents prêt. Redémarre Claude Code, connecte Perplexity avec /mcp si besoin, puis lance : /rey-agents:rey <tâche>"
 }
 
 main "$@"
