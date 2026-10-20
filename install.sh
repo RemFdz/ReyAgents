@@ -10,7 +10,9 @@ command -v claude >/dev/null || { echo "Claude Code introuvable : https://claude
 command -v git >/dev/null || { echo "git introuvable." >&2; exit 1; }
 
 # Repo privé : on passe par SSH si la clé GitHub marche, sinon par gh (HTTPS authentifié).
-if ssh -o BatchMode=yes -o ConnectTimeout=5 -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+# ssh -T sort toujours en code 1 sur GitHub : on lit la sortie hors du pipe à cause de pipefail.
+SSH_OUT=$(ssh -o BatchMode=yes -o ConnectTimeout=5 -T git@github.com 2>&1 || true)
+if [[ "$SSH_OUT" == *"successfully authenticated"* ]]; then
   SOURCE="git@github.com:${REPO}.git"
 elif command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then
   gh auth setup-git >/dev/null
