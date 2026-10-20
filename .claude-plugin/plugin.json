@@ -1,7 +1,7 @@
 {
   "name": "rey-agents",
   "displayName": "Rey Agents",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pipeline de dev multi-agents : recherche, plan, critique d'archi, dev par stack, refacto, review et audit sécurité.",
   "author": {
     "name": "RemFdz"
