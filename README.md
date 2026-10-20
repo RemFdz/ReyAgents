@@ -1,70 +1,70 @@
 # ReyAgents
 
-Plugin Claude Code qui fait passer une tâche de dev par une chaîne d'agents spécialisés.
+A Claude Code plugin that runs a development task through a chain of specialized agents.
 
 ```
-/rey-agents:rey <tâche>
+/rey-agents:rey <task>
 
  researcher ─▶ planner ─▶ architect ─▶ dev-<stack> ─▶ refactorer ─▶ reviewer ┐
- (web/Perplexity) (CLAUDE.md) (YAGNI/KISS)  (code + tests)  (lisibilité)  security ┘─▶ corrections (2 tours max)
+ (web/Perplexity) (CLAUDE.md) (YAGNI/KISS)  (code + tests)  (readability) security ┘─▶ fixes (2 rounds max)
 ```
 
-| Agent | Rôle | Modifie le code |
+| Agent | Role | Edits code |
 |---|---|---|
-| `researcher` | Bonnes pratiques sourcées pour la tâche et les versions du projet | non |
-| `planner` | Plan court qui respecte `CLAUDE.md` | non |
-| `architect` | Critique le plan (YAGNI, KISS, séparation des responsabilités) | non |
-| `dev-<stack>` | Code minimal qui marche, tests d'abord | oui |
-| `refactorer` | Lisibilité humaine, sans toucher aux tests ni au comportement | oui |
-| `reviewer` | Correction, conformité au plan, tests | non |
-| `security` | Audit des failles exploitables + scanners disponibles | non |
-| `agent-forge` | Crée `dev-<stack>` quand il n'existe pas | un fichier agent |
+| `researcher` | Sourced best practices for the task and the project's versions | no |
+| `planner` | Short plan that follows `CLAUDE.md` | no |
+| `architect` | Critiques the plan (YAGNI, KISS, separation of concerns) | no |
+| `dev-<stack>` | Minimal working code, tests first | yes |
+| `refactorer` | Human readability, without touching tests or behaviour | yes |
+| `reviewer` | Correctness, plan conformance, tests | no |
+| `security` | Audit of exploitable vulnerabilities + available scanners | no |
+| `agent-forge` | Creates `dev-<stack>` when it doesn't exist | one agent file |
 
-L'orchestrateur est le skill `rey` : il tourne dans ta session, sauvegarde chaque livrable dans `.rey/<slug>/` et relance lui-même les tests au lieu de croire les agents sur parole.
+The orchestrator is the `rey` skill: it runs in your session, saves every deliverable to `.rey/<slug>/` and re-runs the tests itself instead of taking the agents' word for it.
 
 ## Installation
 
-Sur n'importe quel ordi où Claude Code et `gh` sont connectés à GitHub :
+On any machine where Claude Code and `gh` are logged in to GitHub:
 
 ```bash
 gh api repos/RemFdz/ReyAgents/contents/install.sh -H "Accept: application/vnd.github.raw" | bash
 ```
 
-Ou depuis un clone du repo : `./install.sh`. Le script est relançable : il installe la première fois, puis met à jour.
+Or from a clone of the repo: `./install.sh`. The script is safe to re-run: it installs the first time, then updates.
 
-Le repo étant privé, il faut une clé SSH GitHub ou `gh auth login`.
+Since the repo is private, you need a GitHub SSH key or `gh auth login`.
 
-### Faire évoluer les agents
+### Evolving the agents
 
-Modifie les fichiers dans `agents/` ou `skills/`, commite, pousse, puis relance le script sur chaque ordi pour récupérer la nouvelle version. Pense à incrémenter `version` dans `.claude-plugin/plugin.json` à chaque changement : c'est elle qui déclenche la mise à jour.
+Edit the files in `agents/` or `skills/`, commit, push, then re-run the script on each machine to get the new version. Bump `version` in `.claude-plugin/plugin.json` on every change: that is what triggers the update.
 
-Ajoute `.rey/` au `.gitignore` de tes projets.
+Add `.rey/` to your projects' `.gitignore`.
 
 ### Perplexity
 
-Le script ajoute aussi le serveur MCP `perplexity` (portée utilisateur). Deux options :
+The script also adds the `perplexity` MCP server (user scope). Two options:
 
-- **OAuth** (par défaut) : après l'install, dans Claude Code, tape `/mcp`, choisis `perplexity` et connecte-toi.
-- **Clé API** : exporte la clé avant de lancer le script, par exemple `PERPLEXITY_API_KEY=pplx-… ./install.sh`.
+- **OAuth** (default): after installing, run `/mcp` in Claude Code, pick `perplexity` and sign in.
+- **API key**: export the key before running the script, e.g. `PERPLEXITY_API_KEY=pplx-… ./install.sh`.
 
-Garde le nom de serveur `perplexity` : les agents référencent `mcp__perplexity__*`. Sans lui, ils utilisent la recherche web intégrée.
+Keep the server name `perplexity`: the agents reference `mcp__perplexity__*`. Without it, they fall back to the built-in web search.
 
-## Agents dev par stack
+## Per-stack dev agents
 
-Seul `dev-svelte` (Svelte 5 en runes + SvelteKit) est fourni. Pour une autre stack, l'orchestrateur lance `agent-forge`, qui écrit `.claude/agents/dev-<stack>.md` dans ton projet sur le modèle de `dev-svelte`. Relis-le et commite-le.
+Only `dev-svelte` (Svelte 5 runes + SvelteKit) ships with the plugin. For another stack, the orchestrator runs `agent-forge`, which writes `.claude/agents/dev-<stack>.md` in your project, modelled on `dev-svelte`. Review it and commit it.
 
-Un agent `dev-<stack>` dans `.claude/agents/` du projet ou dans `~/.claude/agents/` est prioritaire sur celui du plugin : c'est comme ça qu'on surcharge.
+A `dev-<stack>` agent in the project's `.claude/agents/` or in `~/.claude/agents/` takes precedence over the plugin's: that's how you override it.
 
-Chaque agent dev doit garder les sections `Stack rules` et `Security pitfalls` : le reviewer et l'agent sécurité les lisent.
+Every dev agent must keep its `Stack rules` and `Security pitfalls` sections: the reviewer and the security agent read them.
 
-## Choix de conception
+## Design choices
 
-- **Moindre privilège** : seuls `dev-<stack>` et `refactorer` modifient des fichiers. Les autres renvoient leur livrable et l'orchestrateur l'enregistre. Aucun sous-agent ne peut lancer d'autres agents.
-- **Le refacto ne peut pas casser** : l'orchestrateur prend un instantané avant, vérifie l'empreinte des tests et que tout passe, sinon il restaure la version du dev.
-- **Contenu web = données** : les agents qui lisent le web ont pour consigne de ne jamais suivre d'instructions trouvées dans les pages.
-- Les prompts des agents sont en anglais, plus économe en tokens et suivi de façon plus fiable ; l'orchestrateur te répond dans ta langue.
+- **Least privilege**: only `dev-<stack>` and `refactorer` edit files. The others return their deliverable and the orchestrator saves it. No subagent can launch other agents.
+- **Refactoring can't break things**: the orchestrator takes a snapshot first, checks the test file hashes and that everything passes, otherwise it restores the developer's version.
+- **Web content is data**: agents that read the web are told never to follow instructions found in pages.
+- Agent prompts are in English, which uses fewer tokens and is followed more reliably; the orchestrator answers in your language.
 
-## Limites
+## Limitations
 
-- Un agent créé dans un dossier `.claude/agents/` qui n'existait pas au démarrage n'est chargé qu'après redémarrage ; l'orchestrateur l'exécute via `general-purpose` en attendant.
-- Sans repo git, le snapshot du refacto et la revue du diff ne sont pas fiables.
+- An agent created in a `.claude/agents/` folder that didn't exist at startup is only loaded after a restart; until then the orchestrator runs it through `general-purpose`.
+- Without a git repository, the refactor snapshot and the diff review aren't reliable.
