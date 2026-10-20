@@ -1,0 +1,14 @@
+{
+  "name": "rey-agents",
+  "description": "Marketplace personnel pour le plugin rey-agents.",
+  "owner": {
+    "name": "RemFdz"
+  },
+  "plugins": [
+    {
+      "name": "rey-agents",
+      "source": "./",
+      "description": "Pipeline de dev multi-agents avec agents dev par stack générés à la demande."
+    }
+  ]
+}
