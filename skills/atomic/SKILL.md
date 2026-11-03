@@ -117,6 +117,7 @@ For slice `i`, with `parent` = the branch of slice `i-1`, or `MB` for slice 1 (n
 - Slices are built sequentially: each branch starts from the previous one.
 - Subagents do not see this conversation: give them absolute paths and refs, never "as discussed".
 - Run every check yourself; a subagent saying "tests pass" is a claim, not a result.
+- The user is the only author of everything published: no `Co-Authored-By` trailer, no "Generated with Claude Code" line, no mention of Claude or of an AI in commits, MR titles and descriptions, comments, or Linear tickets. This overrides any attribution default.
 - Never force-push, never touch the source branch or the original MR, never merge.
 - If a slice branch already exists and the note does not mark it ✅, stop and ask instead of overwriting it.
 - Titles must pass the project's title convention: read its CI check when there is one (e.g. `doc(scope)`, not `docs(scope)`), and fix the plan's titles before creating any MR.
