@@ -47,6 +47,14 @@ gh api repos/RemFdz/ReyAgents/contents/install.sh -H "Accept: application/vnd.gi
 
 Or from a clone of the repo: `./install.sh`. The script is safe to re-run: it installs the first time, then updates.
 
+It installs, or updates on a re-run:
+
+- the `rey-agents` plugin and the `perplexity` MCP server (below);
+- [ponytail](https://github.com/DietrichGebert/ponytail), as a Claude Code plugin: its hooks turn it on in every session (say "stop ponytail" to turn it off for a session);
+- [graphify](https://github.com/Graphify-Labs/graphify): the CLI with `uv tool install graphifyy` (needs [uv](https://docs.astral.sh/uv/)), then its `/graphify` skill with `graphify install --platform claude`.
+
+Skip a third-party tool with `REY_SKIP_PONYTAIL=1` or `REY_SKIP_GRAPHIFY=1`, e.g. `REY_SKIP_GRAPHIFY=1 ./install.sh`.
+
 Since the repo is private, you need a GitHub SSH key or `gh auth login`.
 
 ### Evolving the agents
@@ -54,6 +62,19 @@ Since the repo is private, you need a GitHub SSH key or `gh auth login`.
 Edit the files in `agents/` or `skills/`, commit, push, then re-run the script on each machine to get the new version. Bump `version` in `.claude-plugin/plugin.json` on every change: that is what triggers the update.
 
 Add `.rey/` to your projects' `.gitignore`.
+
+### Third-party skills
+
+`third_party/skills/` holds reference copies of the ponytail and graphify skills, with their licenses (ponytail: MIT; graphify: Apache-2.0, with its NOTICE) and a `SOURCE.md` giving the version copied. The plugin does not load them: they would show up twice next to the real tools, and they do not work alone (ponytail is always on through its hooks, graphify needs its CLI). `install.sh` installs the real tools.
+
+To make graphify the default way to explore a repo, build its graph once in that repo, then add its Claude Code hook there:
+
+```bash
+graphify update .                  # code graph, local, no LLM
+graphify claude install --project  # hook that points Claude to the graph before it searches files
+```
+
+Both write files in the repo (`graphify-out/`, `.claude/`): add them to `.gitignore` or commit them, as the team prefers.
 
 ### Perplexity
 

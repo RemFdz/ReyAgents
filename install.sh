@@ -58,6 +58,40 @@ main() {
     claude_cli mcp add --scope user --transport http perplexity "$PERPLEXITY_MCP_URL"
   fi
 
+  # Outils tiers (copies de référence dans third_party/skills/). REY_SKIP_PONYTAIL=1 ou REY_SKIP_GRAPHIFY=1 pour les sauter.
+  if [[ -z "${REY_SKIP_PONYTAIL:-}" ]]; then
+    if [[ "$MARKETPLACES" == *"❯ ponytail"$'\n'* ]]; then
+      echo "→ Mise à jour du marketplace ponytail"
+      claude_cli plugin marketplace update ponytail
+    else
+      echo "→ Ajout du marketplace ponytail"
+      claude_cli plugin marketplace add DietrichGebert/ponytail
+    fi
+    if [[ "$PLUGINS" == *"ponytail@ponytail"* ]]; then
+      echo "→ Mise à jour de ponytail@ponytail"
+      claude_cli plugin update ponytail@ponytail
+    else
+      echo "→ Installation de ponytail@ponytail (actif à chaque session, « stop ponytail » pour le couper)"
+      claude_cli plugin install ponytail@ponytail
+    fi
+  fi
+
+  if [[ -z "${REY_SKIP_GRAPHIFY:-}" ]]; then
+    if command -v uv >/dev/null; then
+      if command -v graphify >/dev/null; then
+        echo "→ Mise à jour du CLI graphify"
+        uv tool upgrade graphifyy || echo "⚠ graphify n'a pas été installé par uv : mets-le à jour avec ton outil (pipx, pip)." >&2
+      else
+        echo "→ Installation du CLI graphify"
+        uv tool install graphifyy
+      fi
+      echo "→ Installation du skill graphify pour Claude Code"
+      graphify install --platform claude </dev/null
+    else
+      echo "⚠ uv introuvable : graphify non installé (https://docs.astral.sh/uv/, puis relance)." >&2
+    fi
+  fi
+
   echo "✓ rey-agents prêt. Redémarre Claude Code, connecte Perplexity avec /mcp si besoin, puis lance : /rey-agents:rey <tâche>"
 }
 
