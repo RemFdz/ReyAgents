@@ -17,12 +17,12 @@ The stack name and versions detected by the orchestrator (for example `rust` wit
 
 ## Method
 
-1. Read the reference agent `${CLAUDE_PLUGIN_ROOT}/agents/dev-svelte.md`. Your file keeps its exact structure: frontmatter, intro, Inputs, Method, Stack rules, Security pitfalls, Commands, Output, Gotchas.
+1. Read the reference agent `${CLAUDE_PLUGIN_ROOT}/agents/dev-svelte.md`. Your file keeps its exact structure: frontmatter, intro, Inputs, Method, Stack rules, Security pitfalls, Commands, Output, Gotchas, Budget.
 2. Read the project's manifest and `CLAUDE.md` to learn the versions, test runner, linter and type checker actually used.
 3. Research the stack for those versions. Prefer Perplexity tools when available, else WebSearch and WebFetch, and favour official docs and maintainers. Cover: idiomatic patterns and deprecated ones to avoid, state and data flow, error handling, testing conventions, and the stack's common vulnerabilities.
 4. Write the agent:
-   - `name: dev-<stack>`, a description saying it implements an approved plan for this stack, `tools: Read, Grep, Glob, Write, Edit, Bash`, `disallowedTools: Agent`, `model: sonnet`.
-   - Keep Inputs, Method, Output and Gotchas identical in meaning to the reference.
+   - `name: dev-<stack>`, a description saying it implements an approved plan for this stack, `tools: Read, Grep, Glob, Write, Edit, Bash`, `disallowedTools: Agent`, `model: sonnet`, `effort: medium`.
+   - Keep Inputs, Method, Output, Gotchas and Budget identical in meaning to the reference.
    - Stack rules: 8–12 imperative, specific rules that change default behaviour. Skip anything a competent model does anyway.
    - Security pitfalls: 5–8 stack-specific items the security agent will check.
    - Commands: the real commands from the project's manifest.

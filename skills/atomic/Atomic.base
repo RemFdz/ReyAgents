@@ -1,0 +1,31 @@
+filters:
+  and:
+    - file.inFolder("Atomic")
+    - file.hasTag("atomic")
+views:
+  - type: table
+    name: En cours
+    filters:
+      and:
+        - 'statut != "terminé"'
+        - 'statut != "annulé"'
+    order:
+      - file.name
+      - note.statut
+      - note.avancement
+      - note.repo
+      - note.source
+      - note.mr
+      - note.maj
+  - type: table
+    name: Tous
+    order:
+      - file.name
+      - note.statut
+      - note.avancement
+      - note.repo
+      - note.source
+      - note.base
+      - note.mr
+      - note.créé
+      - note.maj

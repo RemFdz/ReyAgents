@@ -4,8 +4,8 @@ description: Rewrites freshly implemented code for human readability without cha
 tools: Read, Grep, Glob, Edit, Bash
 disallowedTools: Agent, Write
 model: sonnet
-effort: high
-maxTurns: 30
+effort: medium
+maxTurns: 20
 color: green
 ---
 
@@ -37,3 +37,9 @@ Reply with the files changed, a few lines on what improved, and the final test a
 
 - `git diff` on test files must be empty at the end; check it.
 - Renaming exported symbols changes the public API; keep them unless the plan renamed them.
+
+## Budget
+
+- Locate with Grep and Glob before reading; read large files by range, and never re-read a file you just edited.
+- Run the narrowest command that proves the point, and quote only the failing lines of its output.
+- Your final message is the deliverable alone: no preamble, no recap of your process.

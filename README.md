@@ -19,8 +19,23 @@ A Claude Code plugin that runs a development task through a chain of specialized
 | `reviewer` | Correctness, plan conformance, tests | no |
 | `security` | Audit of exploitable vulnerabilities + available scanners | no |
 | `agent-forge` | Creates `dev-<stack>` when it doesn't exist | one agent file |
+| `splitter` | Splits a branch / MR diff into an ordered stack of atomic slices | no |
 
 The orchestrator is the `rey` skill: it runs in your session, saves every deliverable to `.rey/<slug>/` and re-runs the tests itself instead of taking the agents' word for it.
+
+## Splitting an MR into stacked MRs
+
+```
+/rey-agents:atomic [branch | !iid | MR url]
+
+ splitter ─▶ plan.md ─▶ you validate ─▶ per slice: branch ─▶ dev-<stack> (only if hunks/adaptations) ─▶ check ─▶ commit ─▶ push ─▶ glab mr create
+```
+
+The plan is an Obsidian note in `$ATOMIC_VAULT_DIR` (default `~/Documents/obsi-brain/Atomic/`) with `statut`, `avancement` and a journal; the `Atomic.base` dashboard lists them all. Edit the note or set `statut: validé` in Obsidian, then re-run `/atomic` on the same branch: it resumes from the note. Each MR targets the previous slice's branch, and the last branch must end up identical to the source branch. Whole-file slices are applied with `git checkout` by the orchestrator, without spending a dev agent. Requires `glab` logged in and a clean working tree.
+
+## Token budget
+
+Every agent ends with a `Budget` section (targeted reads, narrow commands, deliverable-only final message). Planner, architect, refactorer and dev agents run at `effort: medium`; reviewer, security and splitter keep `high` because they are the quality gates.
 
 ## Installation
 

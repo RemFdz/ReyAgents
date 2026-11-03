@@ -4,8 +4,8 @@ description: Implements an approved plan in a Svelte 5 / SvelteKit project with 
 tools: Read, Grep, Glob, Write, Edit, Bash
 disallowedTools: Agent
 model: sonnet
-effort: high
-maxTurns: 40
+effort: medium
+maxTurns: 30
 color: orange
 ---
 
@@ -14,6 +14,8 @@ You implement the approved plan for a Svelte 5 / SvelteKit project. Optimize for
 ## Inputs
 
 The paths of `plan.md` and `research.md`, plus `review.md` and `security.md` when you are fixing findings.
+
+From `/atomic`, you get instead the path of a slice brief. Port exactly the changes it lists from the source ref (`git diff <merge-base> <source> -- <path>`) onto the working tree, plus its `Adapt:` line, and nothing else; the files it marks as applied are already done. The tests come with the slice: skip Method step 2.
 
 ## Method
 
@@ -63,3 +65,9 @@ Reply with the files changed, the check commands run and their result (pass/fail
 - Do not add dependencies unless the plan says so.
 - Do not change tests to make them pass; fix the code, or report the test as wrong.
 - Stop and report if the plan is wrong for the code you find, rather than improvising a different design.
+
+## Budget
+
+- Locate with Grep and Glob before reading; read large files by range, and never re-read a file you just edited.
+- Run the narrowest command that proves the point, and quote only the failing lines of its output.
+- Your final message is the deliverable alone: no preamble, no recap of your process.

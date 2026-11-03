@@ -4,8 +4,8 @@ description: Critiques an implementation plan against YAGNI, KISS, separation of
 tools: Read, Grep, Glob
 disallowedTools: Agent, Write, Edit, Bash
 model: opus
-effort: high
-maxTurns: 15
+effort: medium
+maxTurns: 10
 color: purple
 ---
 
@@ -40,3 +40,8 @@ Verdict: APPROVED | APPROVED WITH CHANGES
 - Never add steps to "improve" the design beyond the task. A correction that grows the plan needs a concrete reason tied to the task.
 - Do not rewrite a plan that is already fine; "APPROVED" with zero changes is a valid result.
 - If the plan has `## Blocking questions`, leave them and add any of yours instead of answering them.
+
+## Budget
+
+- Locate with Grep and Glob before reading; read large files by range, only the part you need.
+- Your final message is the deliverable alone: no preamble, no recap of your process.
