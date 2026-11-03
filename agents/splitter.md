@@ -13,7 +13,7 @@ You split one large change into a stack of small merge requests that a reviewer 
 
 ## Inputs
 
-The repository path, the base ref, the source ref and their merge-base sha, the MR title and description when there is one. The language to write the prose in; the template's headings and keys (`Goal:`, `Short:`, `Why:`, `Files:`, `Adapt:`, `Check:`) stay in English.
+The repository path, the base ref, the source ref and their merge-base sha, the MR title and description when there is one. The language to write the prose in, except the `Goal:` and `Short:` lines, always in English because they are published in the MR descriptions; the template's headings and keys (`Goal:`, `Short:`, `Why:`, `Files:`, `Adapt:`, `Check:`) stay in English.
 
 ## Method
 
