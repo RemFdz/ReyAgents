@@ -1,7 +1,7 @@
 ---
 name: atomic
-description: Splits a large merge request or branch into a stack of atomic, stacked GitLab MRs, tracked as a note in the user's Obsidian vault. Use when the user types /atomic, optionally with a branch name, an MR number (!123) or an MR URL.
-argument-hint: "[branch | !iid | MR url]"
+description: Splits a large merge request or branch into a stack of atomic, stacked GitLab MRs or GitHub PRs, tracked as a note in the user's Obsidian vault. Use when the user types /atomic, optionally with a branch name, an MR or PR number (!123, #123) or its URL.
+argument-hint: "[branch | !iid | #number | MR or PR url]"
 disable-model-invocation: true
 ---
 
@@ -10,6 +10,27 @@ disable-model-invocation: true
 Target: $ARGUMENTS
 
 You are the orchestrator. The `rey-agents:splitter` agent writes the split plan; after the user validates it, you build one branch and one MR per slice, calling a dev agent only for slices that need code adapted. You never read the full diff yourself.
+
+## Forge: GitLab or GitHub
+
+Detect the forge once from `git remote get-url origin`: `github.com` (or a target given as `#123` or a `/pull/` URL) → GitHub with `gh`; anything else → GitLab with `glab`. The steps below are written for GitLab: on GitHub, read "MR" as pull request, `!<iid>` as `#<number>`, and use these equivalents:
+
+| Step | GitLab | GitHub |
+|---|---|---|
+| Read the original | `glab mr view <iid> -F json` → `source_branch`, `target_branch`, `web_url`, `title`, `description` | `gh pr view <n> --json headRefName,baseRefName,url,title,body,labels` |
+| MR of a branch | `glab mr list --source-branch <b> -F json` | `gh pr list --head <b> --json number,baseRefName` |
+| Auth | `glab auth status` | `gh auth status` |
+| Create | `glab mr create … --remove-source-branch --yes` (+ `--draft`) | `gh pr create --head <b> --base <parent> --title … --body-file <file> --label … ` (+ `--draft`) |
+| Stack label | scoped `stack::<slug>`, `glab label create` | `stack:<slug>` (no scoped labels), `gh label create` |
+| Templates | `glab api "projects/:id/templates/merge_requests"` | files in `.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/*.md`, `docs/` or the root; none → `Why:` line + files list |
+| Reviewers | `reviewers` of `glab mr view`; remove with `glab mr update <iid> --reviewer -<user>` | `reviewRequests` of `gh pr view` (CODEOWNERS adds them on ready PRs); remove with `gh pr edit <n> --remove-reviewer <user>` |
+| Order guard | `glab api -X POST "projects/:id/merge_requests/<iid>/blocks" …` | none native: draft state and the `Depends on #<n>` line are the guards; skip step 3.7 |
+| Update description | `glab mr update <iid> --description … --draft\|--ready` | `gh pr edit <n> --body-file <file>` (keeps the draft state) |
+| Mark ready + reviewer | `glab mr update <iid> --ready --reviewer <u>` | `gh pr ready <n> && gh pr edit <n> --add-reviewer <u>` |
+| Stack list link | `<project URL>/-/merge_requests?label_name[]=stack::<slug>&sort=created_asc` | `<repo URL>/pulls?q=is:pr+label:stack:<slug>+sort:created-asc` |
+| Check the note | `glab mr list --label "stack::<slug>" -F json` (`--all` once merged) | `gh pr list --label "stack:<slug>" --state all --json number,title,headRefName,state,isDraft` |
+
+On GitHub, before step 3, read `gh api repos/{owner}/{repo} --jq .delete_branch_on_merge`: when false, the next PR is not retargeted after a merge, so tell the user to enable "Automatically delete head branches" or to retarget by hand (`gh pr edit <n> --base <b>`), and journal it.
 
 ## The plan note
 
@@ -36,9 +57,9 @@ maj: <date>
 
 Body: the splitter's plan, then a `## Journal` section where you append one dated line per event (plan written, validated, MR opened, check failed, blocked, done). Under each slice heading, add a status line right below the title, updated as you go: `Statut: à faire`, then `Statut: ✅ [!<iid>](<url>) · \`<branch>\` · <sub-ticket> · check OK` or `Statut: ❌ <reason>`.
 
-The `## Stack` table is the note's dashboard: the user reads it first, so it must always match GitLab. When writing the note, add a `Statut` and an `MR` column after `#`. Every time something changes (MR opened, check failed, slice blocked, MR or branch renamed, slice reworked after its MR exists, MR merged or closed, stack restructured), update in the same edit the slice's row (Statut, MR, Branch, Title, Size), its status line, the frontmatter (`statut`, `avancement`, `maj`) and the journal. A journal line alone is not an update. When the stack is restructured, replace the table and the slice sections in place instead of appending a second table below: the old MRs go into the journal only.
+The `## Stack` table is the note's dashboard: the user reads it first, so it must always match the forge. When writing the note, add a `Statut` and an `MR` column after `#`. Every time something changes (MR opened, check failed, slice blocked, MR or branch renamed, slice reworked after its MR exists, MR merged or closed, stack restructured), update in the same edit the slice's row (Statut, MR, Branch, Title, Size), its status line, the frontmatter (`statut`, `avancement`, `maj`) and the journal. A journal line alone is not an update. When the stack is restructured, replace the table and the slice sections in place instead of appending a second table below: the old MRs go into the journal only.
 
-Write in French: the plan's prose, statuses and journal. Write in English everything published to GitLab: MR titles, commit messages, MR descriptions and the stack header (the plan's `Goal:` and `Short:` lines are already in English; translate the `Why:` line when you reuse it). Keep the template keys (`Goal:`, `Short:`, `Why:`, `Files:`, `Adapt:`, `Check:`) as they are: you parse them.
+Write in French: the plan's prose, statuses and journal. Write in English everything published to the forge: MR titles, commit messages, MR descriptions and the stack header (the plan's `Goal:` and `Short:` lines are already in English; translate the `Why:` line when you reuse it). Keep the template keys (`Goal:`, `Short:`, `Why:`, `Files:`, `Adapt:`, `Check:`) as they are: you parse them.
 
 ## 1. Prepare
 
@@ -50,7 +71,7 @@ Write in French: the plan's prose, statuses and journal. Write in English everyt
    - `validé`: the user validated it in Obsidian; go to step 3.
    - `en cours` or `bloqué`: resume at step 3 from the first slice whose status is not ✅, after checking that the last ✅ branch still exists on the remote.
    - `terminé` or `annulé`: tell the user, and ask before replanning.
-3. Stop and tell the user if: the working tree is dirty (`git status --porcelain`), `glab auth status` fails, or the source branch is not pushed and up to date with its remote.
+3. Stop and tell the user if: the working tree is dirty (`git status --porcelain`), the forge's auth check fails, or the source branch is not pushed and up to date with its remote.
 4. `git fetch origin <base> <source>`, then `MB=$(git merge-base origin/<base> origin/<source>)`. Remember the current branch to restore it at the end.
 5. Scratch workspace for slice briefs: `.rey/atomic-<source slug>/`. If `.rey/` is not in `.gitignore`, tell the user once; do not edit it.
 
@@ -83,15 +104,15 @@ For slice `i`, with `parent` = the branch of slice `i-1`, or `MB` for slice 1 (n
    - Sub-ticket, before the MR, when `linear:` is set: `save_issue` with `parentId: <parent>`, `assignee: "me"`, the parent's team and project, `title` the MR title without `(i/N)`, a two-line description (the `Why:` line, in English, and "Part i/N of <parent>"), and `blockedBy` the previous slice's sub-ticket. Set its `state` from the MR: the team's review state (e.g. Under Review) for a ready MR, its in-progress state for a draft, its blocked state when the MR waits on an MR outside the stack (then also link that MR); never leave it in Triage. Reuse an existing sub-issue with the same title instead. Once the MR exists, add its URL to the sub-ticket (`save_issue` with `id` and `links`).
    - `<desc>`: the project's MR template filled for this slice (see below), and `Depends on !<previous iid>` under its Related MRs from slice 2 on. The stack header of step 4.2 is prepended once every MR exists.
    - Template: list them with `glab api "projects/:id/templates/merge_requests"` and pick the one matching the slice's title type (`feat` → the product or developer feature template the original MR used, `doc` → doc, `fix` → bugfix, `refactor`, `tests`, `ci`…). Fetch its `content`, fill Objectives, Modifications (with the files list), Notes for reviewers and Links from the slice and the original MR (with sub-tickets: `Closes <sub-ticket>, References <parent>` on every slice and `Closes <parent>` added on the last, so each merge closes its own sub-ticket; without: `References <ticket>` on every slice, `Closes <ticket>` only on the last), and tick only the Definition of Done boxes you verified (tests added or updated by the slice, check run). Drop the template's quick-action lines (`/label`, `/draft`): they would undo the draft state chosen here. With no templates, write the `Why:` line and the files list.
-   No reviewer on any MR of the stack, slice 1 included: never pass `--reviewer`, the user assigns them. Right after creating each MR, read its `reviewers` (`glab mr view <iid> -F json`): when GitLab or a project automation already requested some (seen on a ready MR targeting the default branch, a few seconds after creation), remove them (`glab mr update <iid> --reviewer -<username>`, plus `--draft` or `--ready` to keep the state) and journal it. Do it only at creation: never remove reviewers the user added later.
-7. From slice 2 on, register the dependency so GitLab refuses to merge this MR before the previous one:
+   No reviewer on any MR of the stack, slice 1 included: never pass `--reviewer`, the user assigns them. Right after creating each MR, read its `reviewers` (`glab mr view <iid> -F json`): when the forge, CODEOWNERS or a project automation already requested some (seen on a ready MR targeting the default branch, a few seconds after creation), remove them (`glab mr update <iid> --reviewer -<username>`, plus `--draft` or `--ready` to keep the state) and journal it. Do it only at creation: never remove reviewers the user added later.
+7. From slice 2 on, on GitLab, register the dependency so GitLab refuses to merge this MR before the previous one:
    `glab api -X POST "projects/:id/merge_requests/<iid>/blocks" -f blocking_merge_request_id=<previous MR global id>` (the `id` field of `glab mr view <previous iid> -F json`, not the iid). If the call fails (plan without MR dependencies), journal it and go on: the `Depends on` line stays as the only guard.
 8. Update the note: slice status ✅ with the MR link, the slice's row in the Stack table (Statut ✅, MR link, final title with `(i/N)`, branch, size), `avancement`, `maj`, one journal line.
 
 ## 4. Verify and report
 
 1. `git diff <last branch> origin/<source> --stat` must be empty. If not, journal and show the remaining differences: they come from adaptations that were never removed.
-2. Once every MR exists, prepend this header to each MR description, above the template (`glab mr update <iid> --description`), in English like everything published to GitLab, so a reviewer knows in five seconds why the MR is this small and where it sits. Wrap it in `<!-- atomic-stack -->` markers and replace what sits between them when it is already there, so a rerun never stacks two headers:
+2. Once every MR exists, prepend this header to each MR description, above the template (`glab mr update <iid> --description`), in English like everything published to the forge, so a reviewer knows in five seconds why the MR is this small and where it sits. Wrap it in `<!-- atomic-stack -->` markers and replace what sits between them when it is already there, so a rerun never stacks two headers:
 
    ```markdown
    <!-- atomic-stack -->
@@ -105,15 +126,15 @@ For slice `i`, with `parent` = the branch of slice `i-1`, or `MB` for slice 1 (n
 
    1. !<iid> <Short:>   (one line per slice, `← **this MR**` on the current one)
 
-   Merge in order: each MR is blocked by the previous one, and GitLab retargets it on merge.
+   Merge in order: each MR is blocked by the previous one, and the forge retargets it on merge.
    </details>
    <!-- atomic-stack -->
    ```
-   Keep the context in GitLab rather than in an external page (Notion, wiki): every reviewer can read it, it stays in the MR history, and it is never one click away.
+   Keep the context in the forge rather than in an external page (Notion, wiki): every reviewer can read it, it stays in the MR history, and it is never one click away.
 3. Add the stack's MR list link to the note, under the Stack table: `<project URL>/-/merge_requests?label_name[]=stack::<feature slug>&sort=created_asc`.
-4. Check the note against GitLab: `glab mr list --label "stack::<feature slug>" -F json` (with `--all` once some are merged) must give, row for row, the MR, title, branch and state shown in the Stack table; fix the table if not.
+4. Check the note against the forge: `glab mr list --label "stack::<feature slug>" -F json` (with `--all` once some are merged) must give, row for row, the MR, title, branch and state shown in the Stack table; fix the table if not.
 5. Set `statut: terminé` (or `bloqué` if 4.1 failed), then `git switch <original branch>`; if it is checked out in another worktree, stay put and say which branch the checkout is left on.
-6. Reply in French with the note path, the stack's MR list link and a table: #, MR link, target branch, size, dev agent used or not, check result. Remind the user to merge in order (GitLab retargets the next MR when the merged branch is deleted, and the dependency blocks any merge out of order), that slices 2..N are drafts to mark ready one at a time (`glab mr update <iid> --ready --reviewer <user>`) because GitLab cannot undraft or assign a reviewer on merge by itself, that the original MR is untouched: closing it is their call, and, when the project merges with fast-forward or squash, that each retargeted MR must be rebased (Rebase button) before it can merge.
+6. Reply in French with the note path, the stack's MR list link and a table: #, MR link, target branch, size, dev agent used or not, check result. Remind the user to merge in order (the forge retargets the next MR when the merged branch is deleted; on GitLab the dependency also blocks any merge out of order), that slices 2..N are drafts to mark ready one at a time (`glab mr update <iid> --ready --reviewer <user>`) because neither forge can undraft or assign a reviewer on merge by itself, that the original MR is untouched: closing it is their call, and, when the project merges with fast-forward or squash, that each retargeted MR must be rebased before it can merge (Rebase button on GitLab, Update branch on GitHub).
 
 ## Gotchas
 
@@ -124,7 +145,7 @@ For slice `i`, with `parent` = the branch of slice `i-1`, or `MB` for slice 1 (n
 - Never force-push, never touch the source branch or the original MR, never merge.
 - If a slice branch already exists and the note does not mark it ✅, stop and ask instead of overwriting it.
 - Titles must pass the project's title convention: read its CI check when there is one (e.g. `doc(scope)`, not `docs(scope)`), and fix the plan's titles before creating any MR.
-- `glab mr update --title` or `--description` can drop the draft state: always pass `--draft` or `--ready` with them, matching the MR's current state.
+- GitLab: `glab mr update --title` or `--description` can drop the draft state: always pass `--draft` or `--ready` with them, matching the MR's current state.
 - Changing a slice after its MR exists: add commits on its branch, then merge each branch into the next one up the stack (no force-push), rerun every later slice's check, and update every MR title, description, stack header, Linear sub-ticket and Obsidian note entry (Stack table row, slice section, frontmatter) that still describes the old version.
 - Keep each Linear sub-ticket's title equal to its MR title (without `(i/N)`) whenever the MR is renamed.
 - Edit the note in place (Edit tool), never rewrite it whole once validated: the user may have annotated it.
