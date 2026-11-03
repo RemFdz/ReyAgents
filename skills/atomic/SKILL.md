@@ -35,7 +35,7 @@ maj: <date>
 
 Body: the splitter's plan, then a `## Journal` section where you append one dated line per event (plan written, validated, MR opened, check failed, blocked, done). Under each slice heading, add a status line right below the title, updated as you go: `Statut: à faire`, then `Statut: ✅ [!<iid>](<url>) · \`<branch>\` · check OK` or `Statut: ❌ <reason>`.
 
-Write in French: the plan's prose, statuses and journal. Keep the template keys (`Why:`, `Files:`, `Adapt:`, `Check:`) as they are: you parse them.
+Write in French: the plan's prose, statuses and journal. Keep the template keys (`Goal:`, `Short:`, `Why:`, `Files:`, `Adapt:`, `Check:`) as they are: you parse them.
 
 ## 1. Prepare
 
@@ -43,7 +43,7 @@ Write in French: the plan's prose, statuses and journal. Keep the template keys 
    - `!123` or an MR URL: `glab mr view <iid> -F json` → `source_branch`, `target_branch`, `web_url`, `title`, `description`.
    - A branch name, or nothing (current branch): base is the MR target if `glab mr list --source-branch <branch> -F json` finds one, else the remote default branch.
 2. If the plan note already exists, branch on its `statut`:
-   - `à valider`: re-read the note (the user may have edited it) and go to step 2.3.
+   - `à valider`: re-read the note (the user may have edited it) and go to step 2.4.
    - `validé`: the user validated it in Obsidian; go to step 3.
    - `en cours` or `bloqué`: resume at step 3 from the first slice whose status is not ✅, after checking that the last ✅ branch still exists on the remote.
    - `terminé` or `annulé`: tell the user, and ask before replanning.
@@ -55,7 +55,8 @@ Write in French: the plan's prose, statuses and journal. Keep the template keys 
 
 1. Run `rey-agents:splitter` with the repo path, base, source, `MB`, the MR title and description, and "write the prose in French". Write the plan note from its reply with `statut: à valider`.
 2. Check coverage yourself: every path of `git diff --name-only -M $MB origin/<source>` appears in the note. Send missing paths back to the splitter once.
-3. Show the user the Stack table, the Questions and the note path, then ask (AskUserQuestion): **Valider** / **J'ai modifié la note, relis-la** / **Redécouper avec mes remarques** / **Plus tard (je validerai dans Obsidian)** / **Annuler**. Loop until one of the last three or Valider. "Plus tard" leaves `statut: à valider` and stops; "Annuler" sets `annulé` and stops.
+3. Check that the note has a `Goal:` line and at most 7 slices; otherwise send it back to the splitter once, asking for the goal or for fewer slices.
+4. Show the user the `Goal:` line, the Stack table, the Questions and the note path, then ask (AskUserQuestion): **Valider** / **J'ai modifié la note, relis-la** / **Redécouper avec mes remarques** / **Plus tard (je validerai dans Obsidian)** / **Annuler**. Loop until one of the last three or Valider. "Plus tard" leaves `statut: à valider` and stops; "Annuler" sets `annulé` and stops.
 
 Validation, here or by setting `statut: validé` in Obsidian, authorizes creating the branches, pushing them and opening the MRs listed in the note, nothing else. Set `statut: en cours` when you start step 3.
 
@@ -69,15 +70,37 @@ For slice `i`, with `parent` = the branch of slice `i-1`, or `MB` for slice 1 (n
 4. Run the slice's `Check:` command yourself. If it fails, send the failing lines to the dev agent once (run it now if it was skipped in 3.3). If it still fails, set the slice to ❌, `statut: bloqué`, journal the failing lines, and stop: slices already created stay as they are.
 5. Commit: `git add -A -- <slice paths>`, verify `git status --porcelain` shows nothing else, commit with the MR title as subject and the `Why:` line as body.
 6. `git push -u origin <branch_i>`, then
-   `glab mr create --source-branch <branch_i> --target-branch <previous slice branch, or base for slice 1> --title "<title>" --description "<desc>" --remove-source-branch --yes`,
+   `glab mr create --source-branch <branch_i> --target-branch <previous slice branch, or base for slice 1> --title "<title>" --description "<desc>" --remove-source-branch --yes`, adding `--draft` from slice 2 on,
    where `<desc>` is: `Part i/N of the split of <original MR or branch>.`, the `Why:` line, the files list, and `Depends on !<previous iid>` from slice 2 on.
-7. Update the note: slice status ✅ with the MR link, `avancement`, `maj`, one journal line.
+   Never pass `--reviewer`: reviewers are the user's call.
+7. From slice 2 on, register the dependency so GitLab refuses to merge this MR before the previous one:
+   `glab api -X POST "projects/:id/merge_requests/<iid>/blocks" -f blocking_merge_request_id=<previous MR global id>` (the `id` field of `glab mr view <previous iid> -F json`, not the iid). If the call fails (plan without MR dependencies), journal it and go on: the `Depends on` line stays as the only guard.
+8. Update the note: slice status ✅ with the MR link, `avancement`, `maj`, one journal line.
 
 ## 4. Verify and report
 
 1. `git diff <last branch> origin/<source> --stat` must be empty. If not, journal and show the remaining differences: they come from adaptations that were never removed.
-2. Set `statut: terminé` (or `bloqué` if 4.1 failed), then `git switch <original branch>`.
-3. Reply in French with the note path and a table: #, MR link, target branch, size, dev agent used or not, check result. Remind the user to merge in order (GitLab retargets the next MR when the merged branch is deleted), and that the original MR is untouched: closing it is their call.
+2. Once every MR exists, prepend this header to each MR description (`glab mr update <iid> --description`), in French, so a reviewer knows in five seconds why the MR is this small and where it sits. Wrap it in `<!-- atomic-stack -->` markers and replace what sits between them when it is already there, so a rerun never stacks two headers:
+
+   ```markdown
+   <!-- atomic-stack -->
+   > **Stack i/N** · <Goal: line>
+   >
+   > Découpée en petites MR pour une review rapide : chacune fait une seule chose et passe ses tests seule. Reviewe uniquement le diff de cette MR, les autres viennent avant ou après.
+   >
+   > ⬅️ !<previous iid, or the base MR / branch for slice 1> · **cette MR** · ➡️ !<next iid, or 🏁 fin>
+
+   <details><summary>Toute la stack</summary>
+
+   1. !<iid> <Short:>   (one line per slice, `← **cette MR**` on the current one)
+
+   Merge dans l'ordre : chaque MR est bloquée par la précédente et GitLab la retargete au merge.
+   </details>
+   <!-- atomic-stack -->
+   ```
+   Keep the context in GitLab rather than in an external page (Notion, wiki): every reviewer can read it, it stays in the MR history, and it is never one click away.
+3. Set `statut: terminé` (or `bloqué` if 4.1 failed), then `git switch <original branch>`; if it is checked out in another worktree, stay put and say which branch the checkout is left on.
+4. Reply in French with the note path and a table: #, MR link, target branch, size, dev agent used or not, check result. Remind the user to merge in order (GitLab retargets the next MR when the merged branch is deleted, and the dependency blocks any merge out of order), that slices 2..N are drafts to mark ready one at a time (`glab mr update <iid> --ready --reviewer <user>`) because GitLab cannot undraft or assign a reviewer on merge by itself, that the original MR is untouched: closing it is their call, and, when the project merges with fast-forward or squash, that each retargeted MR must be rebased (Rebase button) before it can merge.
 
 ## Gotchas
 
