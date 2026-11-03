@@ -74,7 +74,14 @@ graphify update .                  # code graph, local, no LLM
 graphify claude install --project  # hook that points Claude to the graph before it searches files
 ```
 
-Both write files in the repo (`graphify-out/`, `.claude/`): add them to `.gitignore` or commit them, as the team prefers.
+The second command edits the repo's `CLAUDE.md` and writes `.claude/settings.json`, `.claude/CLAUDE.md` and `.claude/skills/graphify/`; the graph itself lands in `graphify-out/` (hundreds of MB on a large repo). To keep it personal in a team repo, without touching tracked files:
+
+```bash
+git diff CLAUDE.md | sed -n '/^+## graphify/,$p' | sed 's/^+//' > CLAUDE.local.md && git checkout -- CLAUDE.md
+mv .claude/settings.json .claude/settings.local.json   # if .claude/settings.local.json is gitignored
+rm -rf .claude/skills/graphify .claude/CLAUDE.md       # the skill is already installed globally
+printf 'graphify-out/\nCLAUDE.local.md\n' >> "$(git rev-parse --git-common-dir)/info/exclude"
+```
 
 ### Perplexity
 
