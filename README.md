@@ -23,6 +23,16 @@ A Claude Code plugin that runs a development task through a chain of specialized
 
 The orchestrator is the `rey` skill: it runs in your session, saves every deliverable to `.rey/<slug>/` and re-runs the tests itself instead of taking the agents' word for it.
 
+## Reviewing a PR, an MR, a branch or a local diff
+
+```
+/rey-agents:review [#number | !iid | MR or PR url | branch]
+
+ isolated checkout ─▶ reviewer + security + refactorer (report-only) ─▶ checks ─▶ findings verified ─▶ report.md
+```
+
+Read-only: the agents and the project's gates run in a throwaway worktree, so your branch and uncommitted files are not touched, and the skill edits, commits, pushes and posts nothing. The orchestrator reads the code behind each serious finding before reporting it, and lists what it dropped and what nothing covered. Reports stay in `.rey/review-<slug>/`.
+
 ## Splitting an MR into stacked MRs (GitLab) or PRs (GitHub)
 
 ```
